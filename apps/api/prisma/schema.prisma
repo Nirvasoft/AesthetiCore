@@ -1,0 +1,1092 @@
+// =============================================================================
+// AesthetiCore — Prisma Schema (All Modules)
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum UserRole {
+  HQ_ADMIN
+  BRANCH_MANAGER
+  DOCTOR
+  NURSE
+  RECEPTIONIST
+  PATIENT
+}
+
+enum PatientSegment {
+  LEAD
+  ACTIVE
+  VIP
+  INACTIVE
+  DORMANT
+}
+
+enum SessionStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  LOCKED
+  CANCELLED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  PARTIALLY_PAID
+  REFUNDED
+  VOIDED
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  QR_CODE
+  BANK_TRANSFER
+  INSTALMENT
+  CREDIT_BALANCE
+  DEPOSIT
+}
+
+enum InventoryTransactionType {
+  RECEIPT
+  USAGE
+  ADJUSTMENT
+  TRANSFER_IN
+  TRANSFER_OUT
+  WASTAGE
+  EXPIRED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  RECEIVED
+  CANCELLED
+}
+
+enum NotificationChannel {
+  SMS
+  LINE
+  EMAIL
+  PUSH
+  INTERNAL
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StockTransferStatus {
+  PENDING
+  APPROVED
+  IN_TRANSIT
+  RECEIVED
+  CANCELLED
+}
+
+// =============================================================================
+// TENANT & BRANCH
+// =============================================================================
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logoUrl     String?
+  isActive    Boolean  @default(true)
+  settings    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  branches Branch[]
+  users    User[]
+
+  @@map("tenants")
+}
+
+model Branch {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  code        String
+  address     String?
+  phone       String?
+  email       String?
+  timezone    String   @default("Asia/Bangkok")
+  currency    String   @default("THB")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users            User[]
+  patients         Patient[]
+  appointments     Appointment[]
+  sessions         TreatmentSession[]
+  inventoryStocks  InventoryStock[]
+  invoices         Invoice[]
+  staffProfiles    StaffProfile[]
+  rooms            Room[]
+  purchaseOrders   PurchaseOrder[]
+
+  @@unique([tenantId, code])
+  @@map("branches")
+}
+
+// =============================================================================
+// USERS & AUTH
+// =============================================================================
+
+model User {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  branchId        String?
+  branch          Branch?   @relation(fields: [branchId], references: [id])
+  email           String
+  passwordHash    String?
+  firstName       String
+  lastName        String
+  role            UserRole
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  staffProfile    StaffProfile?
+  auditLogs       AuditLog[]
+  signedSessions  TreatmentSession[] @relation("SignedBy")
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+// =============================================================================
+// PATIENT & CRM
+// =============================================================================
+
+model Patient {
+  id              String         @id @default(cuid())
+  tenantId        String
+  branchId        String
+  branch          Branch         @relation(fields: [branchId], references: [id])
+  patientCode     String
+  firstName       String
+  lastName        String
+  dateOfBirth     DateTime?
+  gender          String?
+  phone           String
+  email           String?
+  lineId          String?
+  photoUrl        String?
+  address         Json?
+  segment         PatientSegment @default(ACTIVE)
+  referredById    String?
+  referredBy      Patient?       @relation("Referrals", fields: [referredById], references: [id])
+  referrals       Patient[]      @relation("Referrals")
+  loyaltyPoints   Int            @default(0)
+  creditBalance   Decimal        @default(0) @db.Decimal(10, 2)
+  depositBalance  Decimal        @default(0) @db.Decimal(10, 2)
+  lastVisitDate   DateTime?
+  isActive        Boolean        @default(true)
+  isAnonymized    Boolean        @default(false)
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  medicalHistory    PatientMedicalHistory[]
+  allergies         PatientAllergy[]
+  pdpaConsents      PdpaConsent[]
+  contacts          PatientContact[]
+  packages          PackagePurchase[]
+  appointments      Appointment[]
+  sessions          TreatmentSession[]
+  photos            PatientPhoto[]
+  consentForms      ConsentFormRecord[]
+  interactions      CrmInteraction[]
+  invoices          Invoice[]
+  loyaltyLedger     LoyaltyTransaction[]
+  creditTransactions CreditTransaction[]
+  notifications     NotificationLog[]
+
+  @@unique([tenantId, patientCode])
+  @@index([tenantId, branchId])
+  @@index([phone])
+  @@map("patients")
+}
+
+model PatientContact {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  type        String   // emergency, guardian, spouse
+  name        String
+  phone       String
+  relation    String?
+  createdAt   DateTime @default(now())
+
+  @@map("patient_contacts")
+}
+
+model PatientMedicalHistory {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  condition   String
+  details     String?
+  diagnosedAt DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("patient_medical_history")
+}
+
+model PatientAllergy {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  allergen    String
+  reaction    String?
+  severity    String?  // mild, moderate, severe
+  createdAt   DateTime @default(now())
+
+  @@map("patient_allergies")
+}
+
+model PdpaConsent {
+  id              String   @id @default(cuid())
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id])
+  consentType     String   // marketing, data_processing, photo_use
+  isGranted       Boolean
+  ipAddress       String?
+  signedAt        DateTime @default(now())
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+
+  @@map("pdpa_consents")
+}
+
+model LoyaltyTransaction {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  points      Int
+  type        String   // EARN, REDEEM, EXPIRE, ADJUST
+  reference   String?
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@map("loyalty_transactions")
+}
+
+// =============================================================================
+// PACKAGE MANAGEMENT
+// =============================================================================
+
+model TreatmentPackage {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  description  String?
+  totalSessions Int
+  validityDays  Int
+  price         Decimal  @db.Decimal(10, 2)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  purchases    PackagePurchase[]
+
+  @@map("treatment_packages")
+}
+
+model PackagePurchase {
+  id              String           @id @default(cuid())
+  patientId       String
+  patient         Patient          @relation(fields: [patientId], references: [id])
+  packageId       String
+  package         TreatmentPackage @relation(fields: [packageId], references: [id])
+  totalSessions   Int
+  usedSessions    Int              @default(0)
+  purchasedAt     DateTime         @default(now())
+  expiresAt       DateTime?
+  pricePaid       Decimal          @db.Decimal(10, 2)
+  isActive        Boolean          @default(true)
+
+  sessionUsages   PackageSessionUsage[]
+
+  @@map("package_purchases")
+}
+
+model PackageSessionUsage {
+  id          String          @id @default(cuid())
+  purchaseId  String
+  purchase    PackagePurchase @relation(fields: [purchaseId], references: [id])
+  sessionId   String
+  session     TreatmentSession @relation(fields: [sessionId], references: [id])
+  usedAt      DateTime        @default(now())
+
+  @@map("package_session_usages")
+}
+
+// =============================================================================
+// APPOINTMENTS
+// =============================================================================
+
+model Room {
+  id          String   @id @default(cuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  name        String
+  capacity    Int      @default(1)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  appointments Appointment[]
+
+  @@map("rooms")
+}
+
+model Appointment {
+  id              String            @id @default(cuid())
+  branchId        String
+  branch          Branch            @relation(fields: [branchId], references: [id])
+  patientId       String
+  patient         Patient           @relation(fields: [patientId], references: [id])
+  practitionerId  String?
+  roomId          String?
+  room            Room?             @relation(fields: [roomId], references: [id])
+  status          AppointmentStatus @default(PENDING)
+  startTime       DateTime
+  endTime         DateTime
+  serviceNote     String?
+  depositAmount   Decimal?          @db.Decimal(10, 2)
+  depositPaid     Boolean           @default(false)
+  isNoShow        Boolean           @default(false)
+  cancelReason    String?
+  reminderSent24h Boolean           @default(false)
+  reminderSent2h  Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  session TreatmentSession?
+
+  @@index([branchId, startTime])
+  @@index([patientId])
+  @@map("appointments")
+}
+
+model WaitlistEntry {
+  id              String   @id @default(cuid())
+  branchId        String
+  patientId       String
+  preferredDate   DateTime?
+  notes           String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  @@map("waitlist_entries")
+}
+
+// =============================================================================
+// EMR & CLINICAL
+// =============================================================================
+
+model TreatmentSession {
+  id               String        @id @default(cuid())
+  tenantId         String
+  branchId         String
+  branch           Branch        @relation(fields: [branchId], references: [id])
+  patientId        String
+  patient          Patient       @relation(fields: [patientId], references: [id])
+  appointmentId    String?       @unique
+  appointment      Appointment?  @relation(fields: [appointmentId], references: [id])
+  practitionerId   String
+  doctorSignedById String?
+  doctorSignedBy   User?         @relation("SignedBy", fields: [doctorSignedById], references: [id])
+  status           SessionStatus @default(DRAFT)
+  chiefComplaint   String?
+  subjective       String?
+  objective        String?
+  assessment       String?
+  plan             String?
+  isLocked         Boolean       @default(false)
+  doctorSignedAt   DateTime?
+  visitDate        DateTime      @default(now())
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  treatmentLines  TreatmentLine[]
+  addenda         SessionAddendum[]
+  photos          PatientPhoto[]
+  auditLogs       EmrAuditLog[]
+  packageUsages   PackageSessionUsage[]
+  consentForms    ConsentFormRecord[]
+  invoiceItems    InvoiceItem[]
+  invoices        Invoice[]
+
+  @@index([tenantId])
+  @@index([branchId, visitDate])
+  @@index([patientId])
+  @@map("treatment_sessions")
+}
+
+
+model TreatmentLine {
+  id                String           @id @default(cuid())
+  sessionId         String
+  session           TreatmentSession @relation(fields: [sessionId], references: [id])
+  productId         String?
+  product           Product?         @relation(fields: [productId], references: [id])
+  productName       String
+  batchId           String?
+  batch             InventoryBatch?  @relation(fields: [batchId], references: [id])
+  quantityUsed      Decimal          @db.Decimal(10, 4)
+  unit              String?
+  bodyZone          String?
+  notes             String?
+  contraindicationOverrideReason String?
+  overriddenById    String?
+  price             Decimal          @db.Decimal(10, 2)
+  createdAt         DateTime         @default(now())
+
+  inventoryTransactions InventoryTransaction[]
+
+  @@map("treatment_lines")
+}
+
+model SessionAddendum {
+  id        String           @id @default(cuid())
+  sessionId String
+  session   TreatmentSession @relation(fields: [sessionId], references: [id])
+  content   String
+  addedById String
+  createdAt DateTime         @default(now())
+
+  @@map("session_addenda")
+}
+
+model EmrAuditLog {
+  id          String           @id @default(cuid())
+  sessionId   String
+  session     TreatmentSession @relation(fields: [sessionId], references: [id])
+  userId      String
+  action      String
+  details     Json
+  timestamp   DateTime         @default(now())
+
+  // Immutable — no UPDATE or DELETE allowed ever (enforced at app layer)
+  @@map("emr_audit_log")
+}
+
+// =============================================================================
+// PHOTOS & CONSENT
+// =============================================================================
+
+model PatientPhoto {
+  id          String            @id @default(cuid())
+  patientId   String
+  patient     Patient           @relation(fields: [patientId], references: [id])
+  sessionId   String?
+  session     TreatmentSession? @relation(fields: [sessionId], references: [id])
+  s3Key       String
+  s3Bucket    String
+  thumbnailKey String?
+  bodyZone    String?
+  photoType   String?           // before, after, progress
+  pairedWithId String?
+  takenAt     DateTime          @default(now())
+  createdAt   DateTime          @default(now())
+
+  @@map("patient_photos")
+}
+
+model ConsentTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  version     Int      @default(1)
+  content     String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  records     ConsentFormRecord[]
+
+  @@map("consent_templates")
+}
+
+model ConsentFormRecord {
+  id              String           @id @default(cuid())
+  patientId       String
+  patient         Patient          @relation(fields: [patientId], references: [id])
+  sessionId       String?
+  session         TreatmentSession? @relation(fields: [sessionId], references: [id])
+  templateId      String
+  template        ConsentTemplate  @relation(fields: [templateId], references: [id])
+  signatureS3Key  String?
+  pdfS3Key        String?
+  signedAt        DateTime?
+  ipAddress       String?
+  createdAt       DateTime         @default(now())
+
+  @@map("consent_form_records")
+}
+
+// =============================================================================
+// INVENTORY
+// =============================================================================
+
+model ProductCategory {
+  id        String    @id @default(cuid())
+  tenantId  String
+  name      String
+  parentId  String?
+  parent    ProductCategory?  @relation("SubCategories", fields: [parentId], references: [id])
+  children  ProductCategory[] @relation("SubCategories")
+  createdAt DateTime  @default(now())
+
+  products  Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id            String          @id @default(cuid())
+  tenantId      String
+  categoryId    String?
+  category      ProductCategory? @relation(fields: [categoryId], references: [id])
+  sku           String
+  name          String
+  description   String?
+  unit          String
+  costPrice     Decimal         @db.Decimal(10, 2)
+  sellingPrice  Decimal         @db.Decimal(10, 2)
+  minStockLevel Int             @default(0)
+  isActive      Boolean         @default(true)
+  requiresLot   Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  batches         InventoryBatch[]
+  stockLevels     InventoryStock[]
+  treatmentLines  TreatmentLine[]
+  poItems         PurchaseOrderItem[]
+
+  @@unique([tenantId, sku])
+  @@map("products")
+}
+
+model Supplier {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model InventoryBatch {
+  id             String   @id @default(cuid())
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id])
+  branchId       String
+  lotNumber      String?
+  expiryDate     DateTime?
+  quantityIn     Decimal  @db.Decimal(10, 4)
+  quantityOnHand Decimal  @db.Decimal(10, 4)
+  costPerUnit    Decimal  @db.Decimal(10, 4)
+  receivedAt     DateTime @default(now())
+  isExpired      Boolean  @default(false)
+
+  transactions   InventoryTransaction[]
+  treatmentLines TreatmentLine[]
+
+  @@index([productId, branchId, expiryDate])
+  @@map("inventory_batches")
+}
+
+model InventoryStock {
+  id              String   @id @default(cuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id])
+  quantityOnHand  Decimal  @db.Decimal(10, 4)
+  reservedQty     Decimal  @default(0) @db.Decimal(10, 4)
+  updatedAt       DateTime @updatedAt
+
+  @@unique([productId, branchId])
+  @@map("inventory_stock")
+}
+
+model InventoryTransaction {
+  id              String                   @id @default(cuid())
+  batchId         String
+  batch           InventoryBatch           @relation(fields: [batchId], references: [id])
+  branchId        String
+  type            InventoryTransactionType
+  quantity        Decimal                  @db.Decimal(10, 4)
+  referenceId     String?
+  referenceType   String?                  // session, purchase_order, transfer
+  treatmentLineId String?
+  treatmentLine   TreatmentLine?           @relation(fields: [treatmentLineId], references: [id])
+  notes           String?
+  createdById     String
+  createdAt       DateTime                 @default(now())
+
+  @@index([batchId])
+  @@index([branchId, createdAt])
+  @@map("inventory_transactions")
+}
+
+model PurchaseOrder {
+  id          String              @id @default(cuid())
+  branchId    String
+  branch      Branch              @relation(fields: [branchId], references: [id])
+  supplierId  String
+  supplier    Supplier            @relation(fields: [supplierId], references: [id])
+  status      PurchaseOrderStatus @default(DRAFT)
+  totalAmount Decimal             @db.Decimal(10, 2)
+  notes       String?
+  approvedById String?
+  approvedAt  DateTime?
+  expectedAt  DateTime?
+  createdById String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  items       PurchaseOrderItem[]
+  grnRecords  GrnRecord[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id            String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  productId     String
+  product       Product       @relation(fields: [productId], references: [id])
+  quantity      Decimal       @db.Decimal(10, 4)
+  unitCost      Decimal       @db.Decimal(10, 4)
+  totalCost     Decimal       @db.Decimal(10, 4)
+
+  @@map("purchase_order_items")
+}
+
+model GrnRecord {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  receivedById    String
+  receivedAt      DateTime      @default(now())
+  notes           String?
+
+  @@map("grn_records")
+}
+
+model StockTransfer {
+  id            String              @id @default(cuid())
+  fromBranchId  String
+  toBranchId    String
+  status        StockTransferStatus @default(PENDING)
+  requestedById String
+  approvedById  String?
+  approvedAt    DateTime?
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  items         StockTransferItem[]
+
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id          String        @id @default(cuid())
+  transferId  String
+  transfer    StockTransfer @relation(fields: [transferId], references: [id])
+  productId   String
+  batchId     String
+  quantity    Decimal       @db.Decimal(10, 4)
+
+  @@map("stock_transfer_items")
+}
+
+// =============================================================================
+// BILLING & FINANCE
+// =============================================================================
+
+model Invoice {
+  id                 String        @id @default(cuid())
+  branchId           String
+  branch             Branch        @relation(fields: [branchId], references: [id])
+  patientId          String
+  patient            Patient       @relation(fields: [patientId], references: [id])
+  sessionId          String?
+  session            TreatmentSession? @relation(fields: [sessionId], references: [id])
+  invoiceNumber      String
+  status             InvoiceStatus @default(DRAFT)
+  subtotal           Decimal       @db.Decimal(10, 2)
+  discountAmount     Decimal       @default(0) @db.Decimal(10, 2)
+  taxRate            Decimal       @default(0) @db.Decimal(5, 2)
+  taxAmount          Decimal       @default(0) @db.Decimal(10, 2)
+  serviceChargePct   Decimal       @default(0) @db.Decimal(5, 2)
+  serviceChargeAmt   Decimal       @default(0) @db.Decimal(10, 2)
+  totalAmount        Decimal       @db.Decimal(10, 2)
+  paidAmount         Decimal       @default(0) @db.Decimal(10, 2)
+  notes              String?
+  voidedAt           DateTime?
+  voidReason         String?
+  pdfS3Key           String?
+  issuedAt           DateTime?
+  paidAt             DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  items              InvoiceItem[]
+  payments           Payment[]
+  instalmentPlan     InstalmentPlan?
+  commissions        Commission[]
+
+  @@unique([branchId, invoiceNumber])
+  @@index([patientId])
+  @@index([status])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id            String            @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice           @relation(fields: [invoiceId], references: [id])
+  sessionId     String?
+  session       TreatmentSession? @relation(fields: [sessionId], references: [id])
+  productId     String?
+  treatmentLineId String?
+  description   String
+  quantity      Decimal           @db.Decimal(10, 4)
+  unitPrice     Decimal           @db.Decimal(10, 2)
+  discountPct   Decimal           @default(0) @db.Decimal(5, 2)
+  discountAmt   Decimal           @default(0) @db.Decimal(10, 2)
+  lineTotal     Decimal           @db.Decimal(10, 2)
+  type          String?           // service, product, package
+
+  @@map("invoice_items")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id])
+  method        PaymentMethod
+  amount        Decimal       @db.Decimal(10, 2)
+  reference     String?
+  note          String?
+  status        String        @default("completed") // completed, voided
+  processedById String
+  processedAt   DateTime      @default(now())
+
+  refunds       Refund[]
+
+  @@map("payments")
+}
+
+model Refund {
+  id              String   @id @default(cuid())
+  paymentId       String
+  payment         Payment  @relation(fields: [paymentId], references: [id])
+  amount          Decimal  @db.Decimal(10, 2)
+  reason          String
+  refundedToCredit Boolean @default(false)
+  processedById   String
+  processedAt     DateTime @default(now())
+
+  @@map("refunds")
+}
+
+model InstalmentPlan {
+  id          String              @id @default(cuid())
+  invoiceId   String              @unique
+  invoice     Invoice             @relation(fields: [invoiceId], references: [id])
+  instalments Int
+  intervalDays Int                @default(30)
+  status      String              @default("ACTIVE") // ACTIVE, COMPLETED, DEFAULTED
+  createdAt   DateTime            @default(now())
+
+  payments    InstalmentPayment[]
+
+  @@map("instalment_plans")
+}
+
+model InstalmentPayment {
+  id          String         @id @default(cuid())
+  planId      String
+  plan        InstalmentPlan @relation(fields: [planId], references: [id])
+  dueDate     DateTime
+  amount      Decimal        @db.Decimal(10, 2)
+  paidAt      DateTime?
+  paymentId   String?        // linked Payment record
+  status      String         @default("PENDING") // PENDING, PAID, OVERDUE
+
+  @@map("instalment_payments")
+}
+
+model Commission {
+  id              String   @id @default(cuid())
+  practitionerId  String
+  branchId        String
+  invoiceId       String
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id])
+  sessionId       String?
+  amount          Decimal  @db.Decimal(10, 2)
+  rate            Decimal  @db.Decimal(5, 4)
+  isPaid          Boolean  @default(false)
+  paidAt          DateTime?
+  periodStart     DateTime
+  periodEnd       DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([practitionerId])
+  @@index([branchId])
+  @@map("commissions")
+}
+
+model CrmInteraction {
+  id            String   @id @default(cuid())
+  patientId     String
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  branchId      String
+  staffId       String
+  type          String   // CALL, CONSULTATION, FOLLOW_UP, COMPLAINT, FEEDBACK, MARKETING, OTHER
+  channel       String   // PHONE, LINE, EMAIL, IN_PERSON, SMS
+  summary       String
+  details       String?
+  outcome       String?
+  followUpDate  DateTime?
+  isFollowedUp  Boolean  @default(false)
+  followedUpAt  DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([patientId])
+  @@index([followUpDate])
+  @@map("crm_interactions")
+}
+
+model Campaign {
+  id              String   @id @default(cuid())
+  tenantId        String
+  createdById     String
+  name            String
+  description     String?
+  channel         String   // SMS, LINE, EMAIL, PUSH
+  messageTemplate String
+  targetSegments  String[] @default([])
+  status          String   @default("DRAFT") // DRAFT, SCHEDULED, SENDING, SENT, CANCELLED
+  audienceCount   Int      @default(0)
+  sentCount       Int      @default(0)
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  notifications   NotificationLog[]
+
+  @@index([tenantId])
+  @@map("campaigns")
+}
+
+model CreditTransaction {
+  id            String   @id @default(cuid())
+  patientId     String
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  amount        Decimal  @db.Decimal(10, 2)  // positive = top-up, negative = deduction
+  type          String   // TOP_UP, DEDUCTION, REFUND
+  note          String?
+  receiptRef    String?
+  processedById String
+  createdAt     DateTime @default(now())
+
+  @@index([patientId])
+  @@map("credit_transactions")
+}
+
+model NotificationTemplate {
+  id        String   @id @default(cuid())
+  tenantId  String
+  code      String
+  channel   NotificationChannel
+  subject   String?
+  body      String
+  variables Json     @default("[]")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  logs      NotificationLog[]
+
+  @@unique([tenantId, code, channel])
+  @@map("notification_templates")
+}
+
+model NotificationLog {
+  id          String                @id @default(cuid())
+  templateId  String?
+  template    NotificationTemplate? @relation(fields: [templateId], references: [id])
+  campaignId  String?
+  campaign    Campaign?             @relation(fields: [campaignId], references: [id])
+  patientId   String?
+  patient     Patient?              @relation(fields: [patientId], references: [id])
+  channel     String
+  recipient   String
+  subject     String?
+  body        String
+  status      String                // queued, sent, failed
+  externalId  String?
+  sentAt      DateTime?
+  failReason  String?
+  createdAt   DateTime              @default(now())
+
+  @@index([patientId])
+  @@index([campaignId])
+  @@map("notification_logs")
+}
+
+
+// =============================================================================
+// STAFF & HR
+// =============================================================================
+
+model StaffProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id])
+  specialty       String?
+  licenseNumber   String?
+  commissionRate  Decimal  @default(0) @db.Decimal(5, 4)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  schedules       Schedule[]
+  attendanceLogs  AttendanceLog[]
+  certifications  StaffCertification[]
+  leaveRequests   LeaveRequest[]
+
+  @@map("staff_profiles")
+}
+
+model Schedule {
+  id          String       @id @default(cuid())
+  staffId     String
+  staff       StaffProfile @relation(fields: [staffId], references: [id])
+  branchId    String
+  startTime   DateTime
+  endTime     DateTime
+  note        String?
+  createdAt   DateTime     @default(now())
+
+  @@map("schedules")
+}
+
+model AttendanceLog {
+  id        String       @id @default(cuid())
+  staffId   String
+  staff     StaffProfile @relation(fields: [staffId], references: [id])
+  clockIn   DateTime
+  clockOut  DateTime?
+  note      String?
+
+  @@map("attendance_logs")
+}
+
+model LeaveRequest {
+  id          String       @id @default(cuid())
+  staffId     String
+  staff       StaffProfile @relation(fields: [staffId], references: [id])
+  leaveType   String       // annual, sick, unpaid
+  startDate   DateTime
+  endDate     DateTime
+  reason      String?
+  status      LeaveStatus  @default(PENDING)
+  reviewedById String?
+  reviewedAt  DateTime?
+  createdAt   DateTime     @default(now())
+
+  @@map("leave_requests")
+}
+
+model StaffCertification {
+  id          String       @id @default(cuid())
+  staffId     String
+  staff       StaffProfile @relation(fields: [staffId], references: [id])
+  name        String
+  issuer      String?
+  issuedAt    DateTime?
+  expiresAt   DateTime?
+  documentKey String?
+  createdAt   DateTime     @default(now())
+
+  @@map("staff_certifications")
+}
+
+// =============================================================================
+// AUDIT LOG (Immutable — no UPDATE or DELETE ever)
+// =============================================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  branchId    String?
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String
+  entity      String
+  entityId    String
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+
+  @@index([tenantId, entity, entityId])
+  @@index([timestamp])
+  @@map("audit_log")
+}

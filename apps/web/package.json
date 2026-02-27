@@ -1,0 +1,11 @@
+{
+  "name": "@aestheticore/web",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "web"
+  },
+  "dependencies": {
+    "recharts": "^3.7.0"
+  }
+}
