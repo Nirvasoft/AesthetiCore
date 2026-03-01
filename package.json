@@ -10,7 +10,7 @@
     "dev:api": "nx serve api",
     "dev:web": "nx serve web",
     "build": "cd apps/api && npx prisma generate --schema=prisma/schema.prisma && cd ../.. && pnpm exec nx build api",
-    "start": "cd apps/api && npx prisma migrate deploy --schema=prisma/schema.prisma && cd ../.. && node apps/api/dist/main.js",
+    "start": "cd apps/api && npx prisma migrate deploy --schema=prisma/schema.prisma; cd ../.. && node apps/api/dist/main.js",
     "postinstall": "cd apps/api && npx prisma generate --schema=prisma/schema.prisma || true",
     "prisma:generate": "./apps/api/node_modules/.bin/prisma generate --schema=apps/api/prisma/schema.prisma",
     "prisma:migrate": "./apps/api/node_modules/.bin/prisma migrate dev --schema=apps/api/prisma/schema.prisma",
@@ -81,5 +81,12 @@
     "rxjs": "^7.8.0",
     "swagger-ui-express": "^5.0.1",
     "zustand": "^5.0.11"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "prisma",
+      "@prisma/client",
+      "@prisma/engines"
+    ]
   }
 }
