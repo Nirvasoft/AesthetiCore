@@ -1,0 +1,14 @@
+node_modules
+.nx
+dist
+.git
+.github
+*.md
+.env*
+!.env.example
+uploads
+apps/api-e2e
+apps/web-e2e
+.vscode
+.prettierrc
+.prettierignore

@@ -1,0 +1,71 @@
+# =============================================================================
+# DigitalOcean App Platform Spec — AesthetiCore
+# Docs: https://docs.digitalocean.com/products/app-platform/reference/app-spec/
+# =============================================================================
+
+name: aestheticore
+
+region: sgp1   # Singapore — change to your preferred region
+
+services:
+  # ── NestJS API ──────────────────────────────────────────────────────────────
+  - name: api
+    github:
+      repo: Nirvasoft/AesthetiCore
+      branch: main
+      deploy_on_push: true
+    build_command: pnpm install --frozen-lockfile && pnpm run build
+    run_command: pnpm start
+    environment_slug: node-js
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    http_port: 8080
+    routes:
+      - path: /api
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8080"
+      - key: DATABASE_URL
+        scope: RUN_AND_BUILD_TIME
+        value: ${db.DATABASE_URL}
+      - key: JWT_SECRET
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+        value: CHANGE_ME_BEFORE_DEPLOY
+      - key: CORS_ORIGINS
+        value: ${APP_URL}
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      failure_threshold: 6
+
+static_sites:
+  # ── React / Vite Frontend ──────────────────────────────────────────────────
+  - name: web
+    github:
+      repo: Nirvasoft/AesthetiCore
+      branch: main
+      deploy_on_push: true
+    environment_slug: node-js
+    build_command: pnpm install --frozen-lockfile && pnpm exec nx build web
+    output_dir: apps/web/dist
+    envs:
+      - key: VITE_API_URL
+        scope: BUILD_TIME
+        value: ${APP_URL}/api
+    routes:
+      - path: /
+    catchall_document: index.html
+
+databases:
+  # ── Managed PostgreSQL ─────────────────────────────────────────────────────
+  - name: db
+    engine: PG
+    production: true
+    cluster_name: aestheticore-db
+    db_name: aestheticore
+    db_user: aestheticore

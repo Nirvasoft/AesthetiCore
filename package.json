@@ -2,9 +2,15 @@
   "name": "@aestheticore/source",
   "version": "0.0.0",
   "license": "MIT",
+  "packageManager": "pnpm@10.0.0",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev:api": "nx serve api",
     "dev:web": "nx serve web",
+    "build": "pnpm exec nx build api && cd apps/api && npx prisma generate --schema=prisma/schema.prisma",
+    "start": "cd apps/api && npx prisma migrate deploy --schema=prisma/schema.prisma && cd ../.. && node apps/api/dist/main.js",
     "prisma:generate": "./apps/api/node_modules/.bin/prisma generate --schema=apps/api/prisma/schema.prisma",
     "prisma:migrate": "./apps/api/node_modules/.bin/prisma migrate dev --schema=apps/api/prisma/schema.prisma",
     "prisma:studio": "./apps/api/node_modules/.bin/prisma studio --schema=apps/api/prisma/schema.prisma"

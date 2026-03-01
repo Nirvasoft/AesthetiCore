@@ -43,3 +43,8 @@ Thumbs.db
 
 vite.config.*.timestamp*
 test-output
+
+# env files (keep examples)
+.env
+.env.local
+.env.*.local
