@@ -3,9 +3,12 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import * as bcrypt from 'bcryptjs';
 
+const connectionString = process.env['DATABASE_URL']
+    ?? 'postgresql://postgres:pgadmin@localhost:5433/aestheticore?schema=public';
+const needsSsl = !connectionString.includes('sslmode=disable');
 const pool = new pg.Pool({
-    connectionString: process.env['DATABASE_URL']
-        ?? 'postgresql://postgres:pgadmin@localhost:5433/aestheticore?schema=public',
+    connectionString,
+    ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
