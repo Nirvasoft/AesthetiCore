@@ -8,13 +8,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     private pool: pg.Pool;
 
     constructor() {
-        const connectionString = process.env.DATABASE_URL
+        const rawUrl = process.env.DATABASE_URL
             ?? 'postgresql://aestheticore:aestheticore_dev@localhost:5432/aestheticore';
 
-        const needsSsl = !connectionString.includes('sslmode=disable');
+        // pg driver treats sslmode=require as verify-full, rejecting self-signed certs.
+        // Strip sslmode from URL and handle SSL purely via Pool config.
+        const hasSsl = !rawUrl.includes('sslmode=disable');
+        const connectionString = rawUrl.replace(/[?&]sslmode=[^&]*/g, '').replace(/\?$/, '');
         const pool = new pg.Pool({
             connectionString,
-            ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
+            ssl: hasSsl ? { rejectUnauthorized: false } : undefined,
         });
         const adapter = new PrismaPg(pool);
 
