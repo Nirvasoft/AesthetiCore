@@ -11,7 +11,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         const connectionString = process.env.DATABASE_URL
             ?? 'postgresql://aestheticore:aestheticore_dev@localhost:5432/aestheticore';
 
-        const pool = new pg.Pool({ connectionString });
+        const needsSsl = !connectionString.includes('sslmode=disable');
+        const pool = new pg.Pool({
+            connectionString,
+            ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
+        });
         const adapter = new PrismaPg(pool);
 
         super({
