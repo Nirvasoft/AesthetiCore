@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { useThemeMode } from '../theme/ThemeContext';
 import {
     Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText,
     Typography, Divider, IconButton, Tooltip, Avatar, Stack,
@@ -11,6 +12,7 @@ import {
     People, CalendarMonth, Inventory2, Receipt,
     BarChart, BadgeOutlined, MedicalServices, Campaign,
     Menu as MenuIcon, ChevronLeft, AutoAwesome, Logout,
+    DarkMode, LightMode,
 } from '@mui/icons-material';
 
 const DRAWER_WIDTH = 260;
@@ -36,6 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const theme = useTheme();
     const location = useLocation();
     const { user, logout } = useAuth();
+    const { mode, toggleTheme } = useThemeMode();
     const [collapsed, setCollapsed] = useState(false);
     const width = collapsed ? DRAWER_COLLAPSED : DRAWER_WIDTH;
     const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : 'AC';
@@ -161,6 +164,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             </Typography>
                         </Box>
                     )}
+                    <Tooltip title={mode === 'dark' ? 'Light mode' : 'Dark mode'}>
+                        <IconButton size="small" onClick={toggleTheme}
+                            sx={{ color: 'text.secondary', '&:hover': { color: 'warning.main' } }}>
+                            {mode === 'dark' ? <LightMode fontSize="small" /> : <DarkMode fontSize="small" />}
+                        </IconButton>
+                    </Tooltip>
                     {!collapsed && (
                         <Tooltip title="Sign out">
                             <IconButton size="small" onClick={logout}
