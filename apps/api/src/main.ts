@@ -10,8 +10,11 @@ async function bootstrap() {
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix);
 
-  // CORS
-  const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',');
+  // CORS — in production allow any origin (frontend uses relative URLs on the
+  // same domain); in development restrict to known local origins.
+  const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',')
+    : (process.env.NODE_ENV === 'production' ? true : ['http://localhost:5173', 'http://localhost:4200', 'http://localhost:4201']);
   app.enableCors({ origin: corsOrigins, credentials: true });
 
   // Global validation pipe

@@ -65,33 +65,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 }}
             >
                 {/* Brand */}
-                <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 2.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Avatar
-                        sx={{
-                            width: 40, height: 40,
-                            background: 'linear-gradient(135deg, #A78BFA 0%, #6366F1 100%)',
-                            boxShadow: `0 4px 14px ${alpha('#6366F1', 0.4)}`,
-                        }}
-                    >
-                        <AutoAwesome sx={{ fontSize: 22 }} />
-                    </Avatar>
-                    {!collapsed && (
-                        <Box>
-                            <Typography variant="subtitle1" fontWeight={800} letterSpacing={-0.5}
-                                sx={{ background: 'linear-gradient(135deg, #A78BFA, #6366F1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                                AesthetiCore
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" fontSize={10} fontWeight={500}>
-                                Clinic Management
-                            </Typography>
-                        </Box>
-                    )}
-                    <Box sx={{ ml: 'auto' }}>
-                        <IconButton size="small" onClick={() => setCollapsed(c => !c)}
+                <Box sx={{ px: collapsed ? 0 : 2.5, py: 2.5, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 1.5 }}>
+                    {collapsed ? (
+                        <IconButton onClick={() => setCollapsed(false)}
                             sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}>
-                            {collapsed ? <MenuIcon fontSize="small" /> : <ChevronLeft fontSize="small" />}
+                            <MenuIcon />
                         </IconButton>
-                    </Box>
+                    ) : (
+                        <>
+                            <Avatar
+                                sx={{
+                                    width: 40, height: 40,
+                                    background: 'linear-gradient(135deg, #A78BFA 0%, #6366F1 100%)',
+                                    boxShadow: `0 4px 14px ${alpha('#6366F1', 0.4)}`,
+                                }}
+                            >
+                                <AutoAwesome sx={{ fontSize: 22 }} />
+                            </Avatar>
+                            <Box>
+                                <Typography variant="subtitle1" fontWeight={800} letterSpacing={-0.5}
+                                    sx={{ background: 'linear-gradient(135deg, #A78BFA, #6366F1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                    AesthetiCore
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" fontSize={10} fontWeight={500}>
+                                    Clinic Management
+                                </Typography>
+                            </Box>
+                            <Box sx={{ ml: 'auto' }}>
+                                <IconButton size="small" onClick={() => setCollapsed(true)}
+                                    sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}>
+                                    <ChevronLeft fontSize="small" />
+                                </IconButton>
+                            </Box>
+                        </>
+                    )}
                 </Box>
 
                 <Divider sx={{ opacity: 0.4 }} />
