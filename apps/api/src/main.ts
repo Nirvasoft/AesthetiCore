@@ -6,9 +6,9 @@ import { AppModule } from './app/app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Global prefix
-  const globalPrefix = 'api';
-  app.setGlobalPrefix(globalPrefix);
+  // No global prefix — DigitalOcean App Platform route '/api' already provides
+  // the prefix and strips it before forwarding requests to this service.
+  // Locally, the Vite dev proxy does the same (strips /api before forwarding).
 
   // CORS — in production allow any origin (frontend uses relative URLs on the
   // same domain); in development restrict to known local origins.
@@ -43,15 +43,15 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup(`${globalPrefix}/docs`, app, document, {
+  SwaggerModule.setup('docs', app, document, {
     swaggerOptions: { persistAuthorization: true },
   });
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
 
-  Logger.log(`🚀 API running at: http://localhost:${port}/${globalPrefix}`);
-  Logger.log(`📚 Swagger docs: http://localhost:${port}/${globalPrefix}/docs`);
+  Logger.log(`🚀 API running at: http://localhost:${port}`);
+  Logger.log(`📚 Swagger docs: http://localhost:${port}/docs`);
 }
 
 bootstrap();
