@@ -281,7 +281,7 @@ export class AnalyticsService {
                     status: 'COMPLETED',
                 },
             },
-            select: { productName: true, quantityUsed: true, unitPrice: true },
+            select: { productName: true, quantityUsed: true, price: true },
         });
 
         const treatments: Record<string, { name: string; count: number; revenue: number }> = {};
@@ -289,7 +289,7 @@ export class AnalyticsService {
             const key = l.productName;
             if (!treatments[key]) treatments[key] = { name: key, count: 0, revenue: 0 };
             treatments[key].count += 1;
-            treatments[key].revenue += Number(l.quantityUsed) * Number(l.unitPrice);
+            treatments[key].revenue += Number(l.quantityUsed) * Number(l.price);
         }
 
         return Object.values(treatments)
